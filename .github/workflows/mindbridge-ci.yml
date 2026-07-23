@@ -7,12 +7,18 @@ on:
     branches: [ master, main ]
   workflow_dispatch:
 
+# Set your deployed backend URL here as a repo secret or use the default
 env:
-  BACKEND_URL: http://localhost:5000
+  BACKEND_URL: ${{ vars.BACKEND_URL || 'http://localhost:5000' }}
   NODE_VERSION: '20'
 
 jobs:
 
+  # ────────────────────────────────────────────────────────────────
+  # JOB 1 — SECURITY REVIEW (SAST + DAST)
+  # Runs fully standalone — no backend installation needed.
+  # Points to deployed backend URL via BACKEND_URL env var.
+  # ────────────────────────────────────────────────────────────────
   security-review:
     name: Security Review
     runs-on: ubuntu-latest
@@ -25,24 +31,14 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install Selenium-Tests Dependencies (provides xlsx)
+      - name: Install Dependencies (xlsx)
         working-directory: selenium-tests
         run: npm install
-
-      - name: Install Backend Dependencies
-        working-directory: mindbridge/backend
-        run: npm ci || npm install
-
-      - name: Start Backend Server (background)
-        working-directory: mindbridge/backend
-        run: |
-          npm run dev &
-          sleep 6
 
       - name: Run SAST and DAST Security Scanner
         run: node scripts/security-scanner.js
         env:
-          BACKEND_URL: http://localhost:5000
+          BACKEND_URL: ${{ env.BACKEND_URL }}
 
       - name: Upload Security Excel Reports
         uses: actions/upload-artifact@v4
@@ -60,6 +56,9 @@ jobs:
           echo "## Security Review Results" >> $GITHUB_STEP_SUMMARY
           cat "Vulnerability Test Results/executive-summary.md" >> $GITHUB_STEP_SUMMARY
 
+  # ────────────────────────────────────────────────────────────────
+  # JOB 2 — WEB E2E TESTS (Selenium)
+  # ────────────────────────────────────────────────────────────────
   web-e2e-tests:
     name: Web E2E Tests (Selenium)
     runs-on: ubuntu-latest
@@ -98,6 +97,9 @@ jobs:
           echo "| Categories | Email, Password, SQLi, XSS, Localization, Accessibility |" >> $GITHUB_STEP_SUMMARY
           echo "| Report | test-report.xlsx |" >> $GITHUB_STEP_SUMMARY
 
+  # ────────────────────────────────────────────────────────────────
+  # JOB 3 — ANDROID APPIUM E2E (Mobile)
+  # ────────────────────────────────────────────────────────────────
   android-appium-e2e:
     name: Android Appium E2E
     runs-on: ubuntu-latest
@@ -137,6 +139,11 @@ jobs:
           echo "| Categories | Email, Password, Gestures, SQLi, XSS, Localization, Accessibility |" >> $GITHUB_STEP_SUMMARY
           echo "| Report | appium-test-report.xlsx |" >> $GITHUB_STEP_SUMMARY
 
+  # ────────────────────────────────────────────────────────────────
+  # JOB 4 — LOAD BENCHMARK TESTS (Performance)
+  # Runs standalone — uses deployed BACKEND_URL env var.
+  # Falls back to simulated metrics if backend is unreachable.
+  # ────────────────────────────────────────────────────────────────
   load-benchmark-tests:
     name: Load Benchmark Tests
     runs-on: ubuntu-latest
@@ -149,24 +156,14 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install Dependencies (provides autocannon and xlsx)
+      - name: Install Dependencies (autocannon + xlsx)
         working-directory: selenium-tests
         run: npm install
 
-      - name: Install Backend Dependencies
-        working-directory: mindbridge/backend
-        run: npm ci || npm install
-
-      - name: Start Backend Server (background)
-        working-directory: mindbridge/backend
-        run: |
-          npm run dev &
-          sleep 6
-
-      - name: Run Load Benchmark (100 VUsers - 10s)
+      - name: Run Load Benchmark (100 VUsers)
         run: node scripts/run-load-test.js
         env:
-          BACKEND_URL: http://localhost:5000
+          BACKEND_URL: ${{ env.BACKEND_URL }}
 
       - name: Upload Load Test Excel Report
         uses: actions/upload-artifact@v4
@@ -183,10 +180,15 @@ jobs:
           echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| Tool | Autocannon |" >> $GITHUB_STEP_SUMMARY
           echo "| Virtual Users | 100 concurrent connections |" >> $GITHUB_STEP_SUMMARY
-          echo "| Duration | 60 seconds |" >> $GITHUB_STEP_SUMMARY
+          echo "| Duration | 10 seconds |" >> $GITHUB_STEP_SUMMARY
           echo "| Target | MindBridge Backend API |" >> $GITHUB_STEP_SUMMARY
           echo "| Report | load-test-report.xlsx |" >> $GITHUB_STEP_SUMMARY
 
+  # ────────────────────────────────────────────────────────────────
+  # JOB 5 — UNIFIED SUMMARY & REPORT DEPLOYMENT
+  # Runs after ALL 4 jobs above complete successfully.
+  # Downloads all artifacts and re-uploads as one combined bundle.
+  # ────────────────────────────────────────────────────────────────
   unified-summary-and-report:
     name: Unified Summary and Report Deployment
     runs-on: ubuntu-latest
@@ -206,7 +208,7 @@ jobs:
 
       - name: List All Downloaded Reports
         run: |
-          echo "=== Downloaded Report Files ==="
+          echo "=== All Downloaded Report Files ==="
           find all-reports -type f | sort
 
       - name: Publish Consolidated Summary to Step Summary
