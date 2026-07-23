@@ -1,0 +1,14 @@
+{
+  "name": "selenium-tests",
+  "version": "1.0.0",
+  "description": "Selenium E2E testing suite and test cases spreadsheet generator for MindBridge.",
+  "main": "tests/login-tests.js",
+  "scripts": {
+    "test": "node tests/login-tests.js"
+  },
+  "dependencies": {
+    "autocannon": "^8.0.0",
+    "selenium-webdriver": "^4.18.0",
+    "xlsx": "^0.18.5"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "appium-tests",
+  "version": "1.0.0",
+  "description": "Appium E2E testing suite and test cases spreadsheet generator for MindBridge.",
+  "main": "tests/login-tests.js",
+  "scripts": {
+    "test": "node tests/login-tests.js"
+  },
+  "dependencies": {
+    "webdriverio": "^8.32.0",
+    "xlsx": "^0.18.5"
+  }
+}
