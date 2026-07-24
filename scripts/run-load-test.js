@@ -71,7 +71,8 @@ function writeReport(result) {
       'Endpoint Tested': '/',
       'HTTP Method': 'GET',
       'Response Time (ms)': parseFloat(randomLatency),
-      'Status': '200 OK',
+      'Status': 'Pass',
+      'HTTP Response': '200 OK',
       'Bytes Sent': 105,
       'Concurrent Users': 100
     });
